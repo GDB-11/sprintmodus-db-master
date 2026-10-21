@@ -1,0 +1,44 @@
+name: ci
+
+# Every push and pull request runs the tests. A v<version> tag also publishes the jar to GitHub Packages, so the services can
+# resolve it in their Docker builds and CI (see README, "Releasing").
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # server-id must match <distributionManagement> in the POM; the credentials are GITHUB_ACTOR / GITHUB_TOKEN
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '26'
+          cache: maven
+          server-id: github
+
+      - name: Test
+        run: ./mvnw -B verify
+
+      - name: The tag matches the POM version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(./mvnw -q help:evaluate -Dexpression=project.version -DforceStdout)"
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME does not match POM version $version"; exit 1; }
+
+      # A released version cannot be overwritten in GitHub Packages: change the code, bump <version>, tag again
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: ./mvnw -B deploy -DskipTests
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

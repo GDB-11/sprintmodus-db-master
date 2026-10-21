@@ -38,3 +38,17 @@ database with the MySQL Connector/J driver, and checks the resulting schema and 
 ## Status
 
 V1.0 - V1.2 create `Organization`, `OrganizationSubscription` and `AuditLog` (Phase 2). `Organization` has two identifiers: `TenantId` (UUID, used in the JWT and to name the tenant DB) and `OrganizationCode` (short, easy to remember, chosen by the owner, typed at login).
+
+## Releasing (GitHub Packages)
+
+This library is not a service: no image. Services resolve it as `com.sprintmodus:db-master:<version>` from GitHub Packages in their
+Docker builds and CI; on a developer machine it comes from `~/.m2` after `./mvnw install`.
+
+1. Change the code, bump `<version>` in `pom.xml` (a released version can **never** be overwritten in GitHub Packages).
+2. Commit, then tag and push: `git tag v<version> && git push origin v<version>`.
+3. `.github/workflows/ci.yml` runs the tests, checks the tag equals the POM version and runs `mvn deploy` (repository id `github`,
+   `<distributionManagement>` in the POM, `GITHUB_TOKEN` with `packages: write`).
+4. Point the consumers at it: `sprintmodus.version` in `auth-service`, `project-service` and `workitem-service`.
+
+The package takes this repository's visibility (private repository, private package) and Maven needs a token to read it even so.
+Let the consuming repositories read it under *Package settings > Manage Actions access*.
